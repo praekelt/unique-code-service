@@ -1,10 +1,12 @@
 from StringIO import StringIO
 import csv
 from hashlib import md5
-import json
 
 from aludel.database import get_engine
-from aludel.service import Service, APIError, BadRequestParams
+from aludel.service import (
+    service, handler, get_url_params, get_json_params, set_request_id,
+    APIError, BadRequestParams,
+)
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
@@ -13,7 +15,7 @@ from .models import (
 )
 
 
-@Service.service
+@service
 class UniqueCodeServiceApp(object):
     def __init__(self, conn_str, reactor):
         self.engine = get_engine(conn_str, reactor)
@@ -28,23 +30,13 @@ class UniqueCodeServiceApp(object):
                 " parameters.")
         return failure
 
-    def get_json_params(self, request, mandatory, optional=()):
-        return Service.get_params(
-            json.loads(request.content.read()), mandatory, optional)
-
-    def get_url_params(self, request, mandatory, optional=()):
-        if 'request_id' in request.args:
-            Service.set_request_id(request, request.args['request_id'][0])
-        params = Service.get_params(request.args, mandatory, optional)
-        return dict((k, v[0]) for k, v in params.iteritems())
-
-    @Service.handler(
+    @handler(
         '/<string:unique_code_pool>/redeem/<string:request_id>',
         methods=['PUT'])
     @inlineCallbacks
     def redeem_unique_code(self, request, unique_code_pool, request_id):
-        Service.set_request_id(request, request_id)
-        params = self.get_json_params(
+        set_request_id(request, request_id)
+        params = get_json_params(
             request, ['transaction_id', 'user_id', 'unique_code'])
         audit_params = {
             'request_id': request_id,
@@ -67,10 +59,10 @@ class UniqueCodeServiceApp(object):
             'flavour': unique_code['flavour'],
         })
 
-    @Service.handler('/<string:unique_code_pool>/audit_query', methods=['GET'])
+    @handler('/<string:unique_code_pool>/audit_query', methods=['GET'])
     @inlineCallbacks
     def audit_query(self, request, unique_code_pool):
-        params = self.get_url_params(
+        params = get_url_params(
             request, ['field', 'value'], ['request_id'])
         if params['field'] not in [
                 'request_id', 'transaction_id', 'user_id', 'unique_code']:
@@ -100,12 +92,12 @@ class UniqueCodeServiceApp(object):
         } for row in rows]
         returnValue({'results': results})
 
-    @Service.handler(
+    @handler(
         '/<string:unique_code_pool>/import/<string:request_id>',
         methods=['PUT'])
     @inlineCallbacks
     def import_unique_codes(self, request, unique_code_pool, request_id):
-        Service.set_request_id(request, request_id)
+        set_request_id(request, request_id)
         content_md5 = request.requestHeaders.getRawHeaders('Content-MD5')
         if content_md5 is None:
             raise BadRequestParams("Missing Content-MD5 header.")
@@ -128,12 +120,12 @@ class UniqueCodeServiceApp(object):
         request.setResponseCode(201)
         returnValue({'imported': True})
 
-    @Service.handler(
+    @handler(
         '/<string:unique_code_pool>/unique_code_counts', methods=['GET'])
     @inlineCallbacks
     def unique_code_counts(self, request, unique_code_pool):
         # This sets the request_id on the request object.
-        self.get_url_params(request, [], ['request_id'])
+        get_url_params(request, [], ['request_id'])
 
         conn = yield self.engine.connect()
         pool = UniqueCodePool(unique_code_pool, conn)
