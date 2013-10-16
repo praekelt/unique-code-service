@@ -9,7 +9,7 @@ from unique_code_service.models import (
     UniqueCodePool, CannotRedeemUniqueCode, NoUniqueCodePool, AuditMismatch,
 )
 
-from .helpers import populate_pool, mk_audit_params, sorted_dicts, voucher_dict
+from .helpers import populate_pool, mk_audit_params
 
 
 class TestUniqueCodePool(TestCase):
