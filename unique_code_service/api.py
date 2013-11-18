@@ -21,7 +21,6 @@ class UniqueCodeServiceApp(object):
         self.engine = get_engine(conn_str, reactor)
 
     def handle_api_error(self, failure, request):
-        # failure.printTraceback()
         if failure.check(NoUniqueCodePool):
             raise APIError('Unique code pool does not exist.', 404)
         if failure.check(AuditMismatch):
