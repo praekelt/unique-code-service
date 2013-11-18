@@ -92,16 +92,16 @@ class UniqueCodePool(PrefixedTableCollection):
         transaction_id = audit_params['transaction_id']
         user_id = audit_params['user_id']
         return self.execute_query(
-            self.audit.insert().values(**{
-                'request_id': request_id,
-                'transaction_id': transaction_id,
-                'user_id': user_id,
-                'request_data': json.dumps(req_data),
-                'response_data': json.dumps(resp_data),
-                'error': error,
-                'created_at': datetime.utcnow(),
-                'unique_code': unique_code,
-            }))
+            self.audit.insert().values(
+                request_id=request_id,
+                transaction_id=transaction_id,
+                user_id=user_id,
+                request_data=json.dumps(req_data),
+                response_data=json.dumps(resp_data),
+                error=error,
+                created_at=datetime.utcnow(),
+                unique_code=unique_code,
+            ))
 
     @inlineCallbacks
     def _get_previous_request(self, audit_params, req_data):
@@ -146,11 +146,11 @@ class UniqueCodePool(PrefixedTableCollection):
                 raise AuditMismatch(row['content_md5'])
 
         yield self.execute_query(
-            self.import_audit.insert().values(**{
-                'request_id': request_id,
-                'content_md5': content_md5,
-                'created_at': datetime.utcnow(),
-            }))
+            self.import_audit.insert().values(
+                request_id=request_id,
+                content_md5=content_md5,
+                created_at=datetime.utcnow(),
+            ))
 
         # NOTE: We're assuming that this will be fast enough. If it isn't,
         # we'll need to make a database-specific plan of some kind.
