@@ -128,9 +128,6 @@ class UniqueCodePool(PrefixedTableCollection):
 
     @inlineCallbacks
     def import_unique_codes(self, request_id, content_md5, unique_code_dicts):
-        # We may not have a table if this is the first import.
-        yield self.create_tables()
-
         trx = yield self._conn.begin()
 
         # Check if we've already done this one.
