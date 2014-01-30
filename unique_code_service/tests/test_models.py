@@ -27,12 +27,13 @@ class TestUniqueCodePool(TestCase):
         rows = self.successResultOf(pool.count_unique_codes())
         assert sorted(tuple(r) for r in rows) == sorted(expected_rows)
 
-    def test_import_creates_table(self):
+    def test_import_fails_for_missing_pool(self):
         pool = UniqueCodePool('testpool', self.conn)
         f = self.failureResultOf(pool.count_unique_codes(), NoUniqueCodePool)
         assert f.value.args == ('testpool',)
-        populate_pool(pool, ['vanilla'], [0])
-        self.assert_unique_code_counts(pool, [('vanilla', False, 1)])
+        f = self.failureResultOf(
+            populate_pool(pool, ['vanilla'], [0]), NoUniqueCodePool)
+        assert f.value.args == ('testpool',)
 
     def test_exists(self):
         pool = UniqueCodePool('testpool', self.conn)
@@ -98,6 +99,7 @@ class TestUniqueCodePool(TestCase):
 
     def test_redeem_valid_unique_code(self):
         pool = UniqueCodePool('testpool', self.conn)
+        self.successResultOf(pool.create_tables())
         populate_pool(pool, ['vanilla'], [0])
         self.assert_unique_code_counts(pool, [('vanilla', False, 1)])
 
@@ -120,6 +122,7 @@ class TestUniqueCodePool(TestCase):
 
     def test_redeem_used_unique_code(self):
         pool = UniqueCodePool('testpool', self.conn)
+        self.successResultOf(pool.create_tables())
         populate_pool(pool, ['vanilla'], [0])
         self.successResultOf(
             pool.redeem_unique_code('vanilla0', mk_audit_params('req-0')))
@@ -133,6 +136,7 @@ class TestUniqueCodePool(TestCase):
 
     def test_redeem_unique_code_idempotent(self):
         pool = UniqueCodePool('testpool', self.conn)
+        self.successResultOf(pool.create_tables())
         populate_pool(pool, ['vanilla'], [0])
         self.assert_unique_code_counts(pool, [('vanilla', False, 1)])
 
@@ -293,6 +297,7 @@ class TestUniqueCodePool(TestCase):
 
     def test_query_by_unique_code(self):
         pool = UniqueCodePool('testpool', self.conn)
+        self.successResultOf(pool.create_tables())
         populate_pool(pool, ['vanilla'], [0])
 
         audit_params = mk_audit_params('req-0')

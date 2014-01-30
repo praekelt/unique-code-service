@@ -57,6 +57,10 @@ class ApiClient(object):
         url_path = 'testpool/redeem/%s' % (request_id,)
         return self.put_json(url_path, params, expected_code)
 
+    def put_create(self, expected_code=201):
+        url_path = 'testpool'
+        return self.put(url_path, Headers({}), None, expected_code)
+
     def put_import(self, request_id, content, content_md5=None,
                    expected_code=201):
         url_path = 'testpool/import/%s' % (request_id,)
@@ -150,12 +154,14 @@ class TestUniqueCodeServiceApp(TestCase):
 
     @inlineCallbacks
     def test_issue_response_contains_request_id(self):
+        yield self.pool.create_tables()
         yield populate_pool(self.pool, ['vanilla'], [0])
         rsp0 = yield self.client.put_redeem('req-0', 'vanilla0')
         assert rsp0['request_id'] == 'req-0'
 
     @inlineCallbacks
     def test_redeem(self):
+        yield self.pool.create_tables()
         yield populate_pool(self.pool, ['vanilla', 'chocolate'], [0, 1])
         rsp0 = yield self.client.put_redeem('req-0', 'vanilla0')
         assert rsp0 == {
@@ -173,6 +179,7 @@ class TestUniqueCodeServiceApp(TestCase):
 
     @inlineCallbacks
     def test_redeem_idempotent(self):
+        yield self.pool.create_tables()
         yield populate_pool(self.pool, ['vanilla'], [0])
         rsp0 = yield self.client.put_redeem('req-0', 'vanilla0')
         assert rsp0 == {
@@ -205,6 +212,7 @@ class TestUniqueCodeServiceApp(TestCase):
 
     @inlineCallbacks
     def test_redeem_invalid_unique_code(self):
+        yield self.pool.create_tables()
         yield populate_pool(self.pool, ['vanilla'], [0])
         rsp = yield self.client.put_redeem('req-0', 'chocolate7')
         assert rsp == {
@@ -214,6 +222,7 @@ class TestUniqueCodeServiceApp(TestCase):
 
     @inlineCallbacks
     def test_redeem_used_unique_code(self):
+        yield self.pool.create_tables()
         yield populate_pool(self.pool, ['vanilla'], [0])
         yield self.client.put_redeem('req-0', 'vanilla0')
         rsp = yield self.client.put_redeem('req-1', 'vanilla0')
@@ -377,6 +386,20 @@ class TestUniqueCodeServiceApp(TestCase):
         }])
 
     @inlineCallbacks
+    def test_create(self):
+        resp = yield self.client.put_create()
+        assert resp == {
+            'request_id': None,
+            'created': True,
+        }
+        # Recreating a pool has a different response.
+        resp = yield self.client.put_create(expected_code=200)
+        assert resp == {
+            'request_id': None,
+            'created': False,
+        }
+
+    @inlineCallbacks
     def test_import(self):
         yield self.pool.create_tables()
         yield self.assert_unique_code_counts([])
@@ -398,6 +421,22 @@ class TestUniqueCodeServiceApp(TestCase):
             ('vanilla', False, 2),
             ('chocolate', False, 2),
         ])
+
+    @inlineCallbacks
+    def test_import_missing_pool(self):
+        content = '\n'.join([
+            'unique_code,flavour',
+            'vanilla0,vanilla',
+            'vanilla1,vanilla',
+            'chocolate0,chocolate',
+            'chocolate1,chocolate',
+        ])
+
+        rsp = yield self.client.put_import('req-0', content, expected_code=404)
+        assert rsp == {
+            'request_id': 'req-0',
+            'error': 'Unique code pool does not exist.',
+        }
 
     @inlineCallbacks
     def test_import_heading_case_mismatch(self):

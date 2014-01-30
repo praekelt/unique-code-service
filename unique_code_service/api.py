@@ -92,6 +92,21 @@ class UniqueCodeServiceApp(object):
         } for row in rows]
         returnValue({'results': results})
 
+    @handler('/<string:unique_code_pool>', methods=['PUT'])
+    @inlineCallbacks
+    def create_pool(self, request, unique_code_pool):
+        conn = yield self.engine.connect()
+        pool = UniqueCodePool(unique_code_pool, conn)
+        try:
+            already_exists = yield pool.exists()
+            if not already_exists:
+                request.setResponseCode(201)
+            yield pool.create_tables()
+        finally:
+            yield conn.close()
+
+        returnValue({'created': not already_exists})
+
     @handler(
         '/<string:unique_code_pool>/import/<string:request_id>',
         methods=['PUT'])
