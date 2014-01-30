@@ -38,9 +38,9 @@ class UniqueCodePool(PrefixedTableCollection):
 
     unique_codes = make_table(
         Column("id", Integer(), primary_key=True),
-        Column("unique_code", String(), nullable=False),
-        Column("flavour", String()),
-        Column("used", Boolean(), default=False),
+        Column("unique_code", String(), nullable=False, index=True),
+        Column("flavour", String(), index=True),
+        Column("used", Boolean(), default=False, index=True),
         Column("created_at", DateTime(timezone=True)),
         Column("modified_at", DateTime(timezone=True)),
         Column("reason", String(), default=None),
