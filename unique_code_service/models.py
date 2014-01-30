@@ -8,9 +8,7 @@ from sqlalchemy.sql import select, func
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from aludel.database import (
-    PrefixedTableCollection, make_table, TableMissingError,
-)
+from aludel.database import TableCollection, make_table, TableMissingError
 
 
 class UniqueCodeError(Exception):
@@ -32,7 +30,7 @@ class CannotRedeemUniqueCode(UniqueCodeError):
         self.unique_code = unique_code
 
 
-class UniqueCodePool(PrefixedTableCollection):
+class UniqueCodePool(TableCollection):
     # We assume all unique codes match this.
     UNIQUE_CODE_ALLOWED_CHARS = string.lowercase + string.digits
 
