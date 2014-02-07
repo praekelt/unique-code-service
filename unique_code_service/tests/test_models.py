@@ -12,24 +12,13 @@ from unique_code_service.models import (
 from .helpers import populate_pool, mk_audit_params
 
 
-def round_dt(dt):
-    """
-    Return a copy of ``dt`` rounded to the nearest second.
-
-    MySQL apparently does this for its DATETIME fields.
-    """
-    new_dt = dt.replace(microsecond=0)
-    if dt.microsecond >= 500000:
-        new_dt += timedelta(seconds=1)
-    return new_dt
-
-
 class TestUniqueCodePool(TestCase):
     timeout = 5
 
     def setUp(self):
         connection_string = os.environ.get(
             "ALUDEL_TEST_CONNECTION_STRING", "sqlite://")
+        self._using_mysql = connection_string.startswith('mysql')
         self.engine = get_engine(
             connection_string, reactor=FakeReactorThreads())
         self._drop_tables()
@@ -45,6 +34,24 @@ class TestUniqueCodePool(TestCase):
         md = MetaData(bind=self.engine._engine)
         md.reflect()
         md.drop_all()
+
+    def before(self):
+        """
+        Hack to deal with MySQL mangling datetimes.
+        """
+        before = datetime.utcnow()
+        if self._using_mysql:
+            before = before.replace(microsecond=0)
+        return before
+
+    def after(self):
+        """
+        Hack to deal with MySQL mangling datetimes.
+        """
+        after = datetime.utcnow()
+        if self._using_mysql:
+            after = after.replace(microsecond=0) + timedelta(seconds=1)
+        return after
 
     def assert_unique_code_counts(self, pool, expected_rows):
         rows = self.successResultOf(pool.count_unique_codes())
@@ -213,17 +220,17 @@ class TestUniqueCodePool(TestCase):
         rows = self.successResultOf(pool.query_by_request_id('req-0'))
         assert rows == []
 
-        before = datetime.utcnow()
+        before = self.before()
         self.successResultOf(pool._audit_request(
             audit_params, 'req_data', 'resp_data', 'vanilla0'))
         self.successResultOf(pool._audit_request(
             mk_audit_params('req-excl'), 'excl', 'excl', 'excl'))
-        after = datetime.utcnow()
+        after = self.after()
 
         rows = self.successResultOf(pool.query_by_request_id('req-0'))
 
         created_at = rows[0]['created_at']
-        assert round_dt(before) <= round_dt(created_at) <= round_dt(after)
+        assert before <= created_at <= after
         assert rows == [{
             'request_id': audit_params['request_id'],
             'transaction_id': audit_params['transaction_id'],
@@ -244,20 +251,20 @@ class TestUniqueCodePool(TestCase):
             pool.query_by_transaction_id('transaction-0'))
         assert rows == []
 
-        before = round_dt(datetime.utcnow())
+        before = self.before()
         self.successResultOf(pool._audit_request(
             audit_params_0, 'req_data_0', 'resp_data_0', 'vanilla0'))
         self.successResultOf(pool._audit_request(
             audit_params_1, 'req_data_1', 'resp_data_1', 'vanilla1'))
         self.successResultOf(pool._audit_request(
             mk_audit_params('req-excl'), 'excl', 'excl', 'excl'))
-        after = round_dt(datetime.utcnow())
+        after = self.after()
 
         rows = self.successResultOf(
             pool.query_by_transaction_id('transaction-0'))
         created_0 = rows[0]['created_at']
         created_1 = rows[1]['created_at']
-        assert before <= round_dt(created_0) <= round_dt(created_1) <= after
+        assert before <= created_0 <= created_1 <= after
 
         assert rows == [{
             'request_id': audit_params_0['request_id'],
@@ -286,19 +293,19 @@ class TestUniqueCodePool(TestCase):
         rows = self.successResultOf(pool.query_by_user_id('user-0'))
         assert rows == []
 
-        before = round_dt(datetime.utcnow())
+        before = self.before()
         self.successResultOf(pool._audit_request(
             audit_params_0, 'req_data_0', 'resp_data_0', 'vanilla0'))
         self.successResultOf(pool._audit_request(
             audit_params_1, 'req_data_1', 'resp_data_1', 'vanilla1'))
         self.successResultOf(pool._audit_request(
             mk_audit_params('req-excl'), 'excl', 'excl', 'excl'))
-        after = round_dt(datetime.utcnow())
+        after = self.after()
 
         rows = self.successResultOf(pool.query_by_user_id('user-0'))
         created_0 = rows[0]['created_at']
         created_1 = rows[1]['created_at']
-        assert before <= round_dt(created_0) <= round_dt(created_1) <= after
+        assert before <= created_0 <= created_1 <= after
 
         assert rows == [{
             'request_id': audit_params_0['request_id'],
@@ -327,16 +334,16 @@ class TestUniqueCodePool(TestCase):
         rows = self.successResultOf(pool.query_by_user_id('user-0'))
         assert rows == []
 
-        before = datetime.utcnow()
+        before = self.before()
         self.successResultOf(pool._audit_request(
             audit_params, 'req_data', 'resp_data', 'vanilla0'))
         self.successResultOf(pool._audit_request(
             mk_audit_params('req-excl'), 'excl', 'excl', 'excl'))
-        after = datetime.utcnow()
+        after = self.after()
 
         rows = self.successResultOf(pool.query_by_unique_code('vanilla0'))
         created_at = rows[0]['created_at']
-        assert round_dt(before) <= round_dt(created_at) <= round_dt(after)
+        assert before <= created_at <= after
 
         assert rows == [{
             'request_id': audit_params['request_id'],
