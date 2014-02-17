@@ -227,8 +227,10 @@ class UniqueCodePool(TableCollection):
             yield trx.commit()
         returnValue(unique_code)
 
+    @inlineCallbacks
     def count_unique_codes(self):
-        return self.execute_fetchall(
+        trx = yield self._conn.begin()
+        rows = yield self.execute_fetchall(
             select([
                 self.unique_codes.c.flavour,
                 self.unique_codes.c.used,
@@ -238,6 +240,8 @@ class UniqueCodePool(TableCollection):
                 self.unique_codes.c.used,
             )
         )
+        yield trx.commit()
+        returnValue(rows)
 
     @inlineCallbacks
     def _query_audit(self, where_clause):
