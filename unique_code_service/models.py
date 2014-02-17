@@ -2,15 +2,10 @@ from datetime import datetime
 import json
 import string
 
-
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from aludel.database import TableCollection, make_table, CollectionMissingError
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text
 from sqlalchemy.sql import select, func
-
 from twisted.internet.defer import inlineCallbacks, returnValue
-
-from aludel.database import (
-    PrefixedTableCollection, make_table, TableMissingError,
-)
 
 
 class UniqueCodeError(Exception):
@@ -32,39 +27,39 @@ class CannotRedeemUniqueCode(UniqueCodeError):
         self.unique_code = unique_code
 
 
-class UniqueCodePool(PrefixedTableCollection):
+class UniqueCodePool(TableCollection):
     # We assume all unique codes match this.
     UNIQUE_CODE_ALLOWED_CHARS = string.lowercase + string.digits
 
     unique_codes = make_table(
         Column("id", Integer(), primary_key=True),
-        Column("unique_code", String(), nullable=False, index=True),
-        Column("flavour", String(), index=True),
+        Column("unique_code", String(255), nullable=False, index=True),
+        Column("flavour", String(255), index=True),
         Column("used", Boolean(), default=False, index=True),
-        Column("created_at", DateTime(timezone=True)),
-        Column("modified_at", DateTime(timezone=True)),
-        Column("reason", String(), default=None),
+        Column("created_at", DateTime(timezone=False)),
+        Column("modified_at", DateTime(timezone=False)),
+        Column("reason", String(255), default=None),
     )
 
     audit = make_table(
         Column("id", Integer(), primary_key=True),
-        Column("request_id", String(), nullable=False, index=True,
+        Column("request_id", String(255), nullable=False, index=True,
                unique=True),
-        Column("transaction_id", String(), nullable=False, index=True),
-        Column("user_id", String(), nullable=False, index=True),
-        Column("request_data", String(), nullable=False),
-        Column("response_data", String(), nullable=False),
+        Column("transaction_id", String(255), nullable=False, index=True),
+        Column("user_id", String(255), nullable=False, index=True),
+        Column("request_data", Text(), nullable=False),
+        Column("response_data", Text(), nullable=False),
         Column("error", Boolean(), nullable=False),
-        Column("created_at", DateTime(timezone=True)),
-        Column("unique_code", String(), index=True),
+        Column("created_at", DateTime(timezone=False)),
+        Column("unique_code", String(255), index=True),
     )
 
     import_audit = make_table(
         Column("id", Integer(), primary_key=True),
-        Column("request_id", String(), nullable=False, index=True,
+        Column("request_id", String(255), nullable=False, index=True,
                unique=True),
-        Column("content_md5", String(), nullable=False),
-        Column("created_at", DateTime(timezone=True)),
+        Column("content_md5", String(255), nullable=False),
+        Column("created_at", DateTime(timezone=False)),
     )
 
     @inlineCallbacks
@@ -72,7 +67,7 @@ class UniqueCodePool(PrefixedTableCollection):
         try:
             result = yield super(UniqueCodePool, self).execute_query(
                 query, *args, **kw)
-        except TableMissingError:
+        except CollectionMissingError:
             raise NoUniqueCodePool(self.name)
         returnValue(result)
 
